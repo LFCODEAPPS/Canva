@@ -58,6 +58,13 @@ select{height:34px;border:1px solid var(--line);border-radius:8px;background:#ff
 .pane.on{display:block}
 .big{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--g0);border-radius:10px;padding:12px 14px;margin-bottom:8px;color:var(--ink)}
 .big:hover{border-color:var(--g5);background:var(--g1)}
+
+/* Estilo para las tarjetas de plantillas */
+.tpl-card{border:1px solid var(--line);background:var(--g0);border-radius:10px;overflow:hidden;margin-bottom:10px;cursor:pointer;transition:.2s}
+.tpl-card:hover{border-color:var(--g5);background:var(--g1);transform:translateY(-2px);box-shadow:0 4px 12px rgba(6,43,32,.08)}
+.tpl-thumb{height:110px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;padding:10px;text-align:center}
+.tpl-title{padding:8px 12px;font-size:13px;font-weight:600;border-top:1px solid var(--line);background:#fff}
+
 .shapes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .shapes button{aspect-ratio:1;border:1px solid var(--line);background:var(--g0);border-radius:10px;font-size:26px;color:var(--g7)}
 .shapes button:hover{border-color:var(--g5);background:var(--g1)}
@@ -75,7 +82,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
 #zoombox{position:absolute;right:14px;bottom:14px;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(6,43,32,.2);display:flex;align-items:center;gap:6px;padding:6px 8px}
 #zoombox button{border:0;background:var(--g1);width:28px;height:28px;border-radius:6px;font-weight:800;color:var(--g8)}
 #zoombox span{min-width:44px;text-align:center;font-size:13px;font-weight:600}
-#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--g9);color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--g9);color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
 #toast.show{opacity:1;transform:translateX(-50%)}
 @media(max-width:760px){#panel{display:none}#title{width:110px}.logo{display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -88,7 +95,6 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
   <button class="hb" id="undo" title="Deshacer (Ctrl+Z)">↶</button>
   <button class="hb" id="redo" title="Rehacer (Ctrl+Y)">↷</button>
   <div class="sp"></div>
-  <!-- Aquí irá el login de Google más adelante -->
   <div id="auth-slot"></div>
   <div class="menu">
     <button class="hb main" id="dlbtn">Descargar ▾</button>
@@ -135,6 +141,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
     <button data-p="upload"><span>⇪</span>Subir</button>
     <button data-p="bg"><span>▨</span>Fondo</button>
     <button data-p="size"><span>⤢</span>Tamaño</button>
+    <button data-p="templates"><span>✦</span>Plantillas</button>
   </nav>
   <aside id="panel">
     <div class="pane on" id="p-text">
@@ -176,6 +183,11 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
       <h3>Tamaño del lienzo</h3>
       <div class="sizes" id="sizes"></div>
     </div>
+    <!-- Panel de Plantillas Profesionales -->
+    <div class="pane" id="p-templates">
+      <h3>Plantillas prediseñadas</h3>
+      <div id="templates-list"></div>
+    </div>
   </aside>
   <main id="ws">
     <canvas id="c"></canvas>
@@ -185,7 +197,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
 <div id="toast"></div>
 
 <script>
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let W=1080,H=1080,zoom=1,restoring=false,hist=[],hi=-1,clip=null;
 const canvas=new fabric.Canvas('c',{width:W,height:H,backgroundColor:'#ffffff',preserveObjectStacking:true,selectionColor:'rgba(23,178,106,.15)',selectionBorderColor:'#17b26a'});
 fabric.Object.prototype.set({cornerColor:'#fff',cornerStrokeColor:'#17b26a',borderColor:'#17b26a',cornerStyle:'circle',cornerSize:11,transparentCorners:false,borderScaleFactor:1.6});
@@ -214,29 +226,97 @@ function undo(){if(hi>0){hi--;load(hist[hi])}}
 function redo(){if(hi<hist.length-1){hi++;load(hist[hi])}}
 function buttons(){$('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1}
 ['object:added','object:modified','object:removed'].forEach(e=>canvas.on(e,snap));
-$('#undo').onclick=undo;$('#redo').onclick=redo;$('#title').oninput=()=>{try{const d=JSON.parse(localStorage.getItem('verdi-design'));d.title=$('#title').value;localStorage.setItem('verdi-design',JSON.stringify(d))}catch(e){}};
-
-/* ---------- Panel lateral ---------- */
-$$('#rail button').forEach(b=>b.onclick=()=>{$$('#rail button').forEach(x=>x.classList.toggle('on',x===b));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p))});
+$('#undo').onclick=undo;$('#redo').onclick=redo;$('#title').oninput=()=>{try{const d=JSON.parse(localStorage.getItem('verdi-design'));d.title=$('#title').value;localStorage.setItem('verdi-design',JSON.stringify(d))}catch(e){}};  /* ---------- Panel lateral ---------- */ $$('#rail button').forEach(b=>b.onclick=()=>{$$('#rail button').forEach(x=>x.classList.toggle('on',x===b));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p))});
 function place(o){o.set({left:W/2,top:H/2,originX:'center',originY:'center'});canvas.add(o).setActiveObject(o);canvas.requestRenderAll()}
+
+/* ---------- Sistema de Plantillas Editables ---------- */
+const PLANTILLAS = [
+  {
+    name: 'Anuncio Minimalista',
+    bg: '#f3fbf6',
+    previewBg: '#e3f5ea',
+    previewColor: '#0f5a41',
+    build() {
+      canvas.clear();
+      bg('#f3fbf6');
+      const t1 = new fabric.IText('NUEVA COLECCIÓN', { fontSize: 70, fontWeight: 800, fontFamily: 'Plus Jakarta Sans', fill: '#062b20', left: W/2, top: H/2 - 80, originX: 'center', originY: 'center' });
+      const t2 = new fabric.IText('Diseños modernos para tu día a día', { fontSize: 32, fontFamily: 'Poppins', fill: '#5d7a6c', left: W/2, top: H/2 + 20, originX: 'center', originY: 'center' });
+      canvas.add(t1, t2);
+      canvas.requestRenderAll();
+      snap();
+    }
+  },
+  {
+    name: 'Oferta Especial',
+    bg: '#fff6d6',
+    previewBg: '#fff0b3',
+    previewColor: '#8a6d0b',
+    build() {
+      canvas.clear();
+      bg('#fff6d6');
+      const box = new fabric.Rect({ width: W - 140, height: H - 140, fill: '#ffffff', stroke: '#17b26a', strokeWidth: 6, rx: 20, ry: 20, left: W/2, top: H/2, originX: 'center', originY: 'center' });
+      const t1 = new fabric.IText('GRAN VENTA', { fontSize: 110, fontFamily: 'Bebas Neue', fill: '#0b3b2c', left: W/2, top: H/2 - 60, originX: 'center', originY: 'center', charSpacing: 100 });
+      const t2 = new fabric.IText('Hasta 50% de descuento en todo', { fontSize: 36, fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fill: '#17b26a', left: W/2, top: H/2 + 60, originX: 'center', originY: 'center' });
+      canvas.add(box, t1, t2);
+      canvas.requestRenderAll();
+      snap();
+    }
+  },
+  {
+    name: 'Cita Inspiradora',
+    bg: '#062b20',
+    previewBg: '#0b3b2c',
+    previewColor: '#3fd18a',
+    build() {
+      canvas.clear();
+      bg('#062b20');
+      const t1 = new fabric.IText('"El éxito es la suma de pequeños esfuerzos repetidos día tras día."', { fontSize: 55, fontFamily: 'Playfair Display', fontStyle: 'italic', fill: '#ffffff', left: W/2, top: H/2 - 40, originX: 'center', originY: 'center', width: W - 200, textAlign: 'center' });
+      canvas.add(t1);
+      canvas.requestRenderAll();
+      snap();
+    }
+  }
+];
+
+function renderTemplatesMenu() {
+  const container = $('#templates-list');
+  container.innerHTML = PLANTILLAS.map((tpl, index) => `
+    <div class="tpl-card" data-index="${index}">
+      <div class="tpl-thumb" style="background:${tpl.previewBg}; color:${tpl.previewColor}">
+        ${tpl.name}
+      </div>
+      <div class="tpl-title">${tpl.name}</div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.tpl-card').forEach(card => {
+    card.onclick = () => {
+      if(canvas.getObjects().length > 0 && !confirm('¿Aplicar esta plantilla? Se reemplazará el contenido actual.')) return;
+      const idx = card.dataset.index;
+      PLANTILLAS[idx].build();
+      toast('Plantilla aplicada correctamente');
+    };
+  });
+}
+renderTemplatesMenu();
 
 /* ---------- Texto ---------- */
 const TXT={h:['Añade un título',{fontSize:90,fontWeight:800,fontFamily:'Plus Jakarta Sans'}],s:['Añade un subtítulo',{fontSize:56,fontWeight:600,fontFamily:'Plus Jakarta Sans'}],b:['Escribe aquí tu texto. Haz doble clic para editarlo.',{fontSize:34,width:620,fontFamily:'Plus Jakarta Sans'}],
- c1:['Hecho con cariño',{fontSize:100,fontFamily:'Pacifico',fill:'#0f5a41'}],c2:['GRAN OFERTA',{fontSize:140,fontFamily:'Bebas Neue',charSpacing:120}],c3:['Elegancia clásica',{fontSize:80,fontFamily:'Playfair Display',fontWeight:700}]};
+  c1:['Hecho con cariño',{fontSize:100,fontFamily:'Pacifico',fill:'#0f5a41'}],c2:['GRAN OFERTA',{fontSize:140,fontFamily:'Bebas Neue',charSpacing:120}],c3:['Elegancia clásica',{fontSize:80,fontFamily:'Playfair Display',fontWeight:700}]};
 $$('[data-t]').forEach(b=>b.onclick=()=>{const [t,o]=TXT[b.dataset.t];const f=document.fonts?document.fonts.load(`${o.fontSize}px "${o.fontFamily}"`):Promise.resolve();f.finally(()=>{const T=o.width?fabric.Textbox:fabric.IText;place(new T(t,{fill:'#10231b',...o}))})});
 
 /* ---------- Formas ---------- */
 const G='#17b26a';
 function star(n=5,R=100,r=45){const p=[];for(let i=0;i<n*2;i++){const a=Math.PI*i/n-Math.PI/2,d=i%2?r:R;p.push({x:R+d*Math.cos(a),y:R+d*Math.sin(a)})}return p}
 const SH={rect:()=>new fabric.Rect({width:260,height:260,fill:G}),
- round:()=>new fabric.Rect({width:320,height:200,rx:36,ry:36,fill:G}),
- circle:()=>new fabric.Circle({radius:140,fill:G}),
- tri:()=>new fabric.Triangle({width:280,height:250,fill:G}),
- star:()=>new fabric.Polygon(star(),{fill:G,scaleX:2.2,scaleY:2.2}),
- hex:()=>new fabric.Polygon(star(6,100,100).filter((_,i)=>i%2==0),{fill:G,scaleX:2.2,scaleY:2.2}),
- heart:()=>new fabric.Path('M 0 -40 C -60 -110 -150 -30 0 90 C 150 -30 60 -110 0 -40 z',{fill:G,scaleX:1.4,scaleY:1.4}),
- line:()=>new fabric.Line([0,0,360,0],{stroke:'#0b3b2c',strokeWidth:8,strokeLineCap:'round'}),
- arrow:()=>new fabric.Path('M 0 20 L 200 20 L 200 0 L 260 50 L 200 100 L 200 80 L 0 80 z',{fill:G,scaleX:1.2,scaleY:1.2})};
+  round:()=>new fabric.Rect({width:320,height:200,rx:36,ry:36,fill:G}),
+  circle:()=>new fabric.Circle({radius:140,fill:G}),
+  tri:()=>new fabric.Triangle({width:280,height:250,fill:G}),
+  star:()=>new fabric.Polygon(star(),{fill:G,scaleX:2.2,scaleY:2.2}),
+  hex:()=>new fabric.Polygon(star(6,100,100).filter((_,i)=>i%2==0),{fill:G,scaleX:2.2,scaleY:2.2}),
+  heart:()=>new fabric.Path('M 0 -40 C -60 -110 -150 -30 0 90 C 150 -30 60 -110 0 -40 z',{fill:G,scaleX:1.4,scaleY:1.4}),
+  line:()=>new fabric.Line([0,0,360,0],{stroke:'#0b3b2c',strokeWidth:8,strokeLineCap:'round'}),
+  arrow:()=>new fabric.Path('M 0 20 L 200 20 L 200 0 L 260 50 L 200 100 L 200 80 L 0 80 z',{fill:G,scaleX:1.2,scaleY:1.2})};
 $$('[data-s]').forEach(b=>b.onclick=()=>place(SH[b.dataset.s]()));
 
 /* ---------- Imágenes ---------- */
@@ -247,9 +327,7 @@ $('#ws').ondragover=e=>e.preventDefault();$('#ws').ondrop=e=>{e.preventDefault()
 addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])];if(f.length)addFiles(f)});
 
 /* ---------- Fondo y tamaño ---------- */
-function bg(c){canvas.setBackgroundColor(c,()=>{canvas.renderAll();snap()});$('#bgc').value=c}
-$$('[data-c]').forEach(b=>b.onclick=()=>bg(b.dataset.c));$('#bgc').onchange=e=>bg(e.target.value);
-$$('#sizes button').forEach(b=>b.onclick=()=>{const s=SIZES[b.dataset.i];W=s[1];H=s[2];fit();snap();toast('Tamaño: '+s[0])});
+function bg(c){canvas.setBackgroundColor(c,()=>{canvas.renderAll();snap()});$('#bgc').value=c} $$('[data-c]').forEach(b=>b.onclick=()=>bg(b.dataset.c));$('#bgc').onchange=e=>bg(e.target.value); $$('#sizes button').forEach(b=>b.onclick=()=>{const s=SIZES[b.dataset.i];W=s[1];H=s[2];fit();snap();toast('Tamaño: '+s[0])});
 
 /* ---------- Barra contextual ---------- */
 const act=()=>canvas.getActiveObjects();
@@ -260,23 +338,18 @@ function sync(){const a=canvas.getActiveObject();$('#g-all').classList.toggle('o
   if(!a)return;const o=a.type==='activeSelection'?a._objects[0]:a;
   if(typeof o.fill==='string')$('#fill').value=toHex(o.fill);if(typeof o.stroke==='string')$('#stroke').value=toHex(o.stroke);
   $('#sw').value=[0,2,4,8].includes(o.strokeWidth)?o.strokeWidth:0;$('#op').value=(o.opacity??1)*100;
-  if(isT(o)){$('#font').value=o.fontFamily;$('#fsize').value=Math.round(o.fontSize*(o.scaleY||1));$('#bold').classList.toggle('act',o.fontWeight>=700||o.fontWeight==='bold');$('#ital').classList.toggle('act',o.fontStyle==='italic');$('#under').classList.toggle('act',!!o.underline);$$('[data-al]').forEach(b=>b.classList.toggle('act',b.dataset.al===o.textAlign))}
-  $('#lock').textContent=a._locked?'🔓':'🔒'}
+  if(isT(o)){$('#font').value=o.fontFamily;$('#fsize').value=Math.round(o.fontSize*(o.scaleY||1));$('#bold').classList.toggle('act',o.fontWeight>=700\vert{}\vert{}o.fontWeight==='bold');$('#ital').classList.toggle('act',o.fontStyle==='italic');$('#under').classList.toggle('act',!!o.underline);$$('[data-al]').forEach(b=>b.classList.toggle('act',b.dataset.al===o.textAlign))}$('#lock').textContent=a._locked?'🔓':'🔒'}
 function toHex(c){const x=document.createElement('canvas').getContext('2d');x.fillStyle=c;return x.fillStyle.length===7?x.fillStyle:'#000000'}
 ['selection:created','selection:updated','selection:cleared'].forEach(e=>canvas.on(e,sync));
 canvas.on('object:scaling',sync);
 
 $('#fill').oninput=e=>each(o=>o.set('fill',e.target.value));
 $('#stroke').oninput=e=>each(o=>o.set({stroke:e.target.value,strokeWidth:o.strokeWidth||(o.type==='line'?8:2)}));
-$('#sw').onchange=e=>each(o=>o.set({stroke:o.stroke||$('#stroke').value,strokeWidth:+e.target.value}));
+$('#sw').onchange=e=>each(o=>o.set({stroke:o.stroke\vert{}\vert{}$('#stroke').value,strokeWidth:+e.target.value}));
 $('#op').oninput=e=>{act().forEach(o=>o.set('opacity',e.target.value/100));canvas.requestRenderAll()};$('#op').onchange=snap;
 $('#font').onchange=e=>{const f=e.target.value;(document.fonts?document.fonts.load(`40px "${f}"`):Promise.resolve()).finally(()=>each(o=>o.set('fontFamily',f)))};
 $('#fsize').onchange=e=>each(o=>{o.set({fontSize:+e.target.value,scaleX:1,scaleY:1})});
-const tog=(id,fn)=>$(id).onclick=()=>{each(fn);sync()};
-tog('#bold',o=>o.set('fontWeight',(o.fontWeight>=700||o.fontWeight==='bold')?400:700));
-tog('#ital',o=>o.set('fontStyle',o.fontStyle==='italic'?'normal':'italic'));
-tog('#under',o=>o.set('underline',!o.underline));
-$$('[data-al]').forEach(b=>b.onclick=()=>{each(o=>o.set('textAlign',b.dataset.al));sync()});
+const tog=(id,fn)=>$(id).onclick=()=>{each(fn);sync()}; tog('#bold',o=>o.set('fontWeight',(o.fontWeight>=700\vert{}\vert{}o.fontWeight==='bold')?400:700)); tog('#ital',o=>o.set('fontStyle',o.fontStyle==='italic'?'normal':'italic')); tog('#under',o=>o.set('underline',!o.underline)); $$('[data-al]').forEach(b=>b.onclick=()=>{each(o=>o.set('textAlign',b.dataset.al));sync()});
 $('#front').onclick=()=>{each(o=>canvas.bringToFront(o))};$('#back').onclick=()=>{each(o=>canvas.sendToBack(o))};
 function del(){const a=act();if(!a.length)return;canvas.discardActiveObject();a.forEach(o=>canvas.remove(o))}
 function copy(){const a=canvas.getActiveObject();if(a)a.clone(c=>clip=c)}
@@ -292,21 +365,19 @@ addEventListener('keydown',e=>{const a=canvas.getActiveObject();if(/INPUT|SELECT
   else if(m&&k==='y'){e.preventDefault();redo()}
   else if(m&&k==='c')copy();else if(m&&k==='v'&&clip)paste();else if(m&&k==='d'){e.preventDefault();copy();paste()}
   else if(m&&k==='a'){e.preventDefault();canvas.discardActiveObject();canvas.setActiveObject(new fabric.ActiveSelection(canvas.getObjects(),{canvas}));canvas.requestRenderAll()}
-  else if(a&&k.startsWith('arrow')){e.preventDefault();const d=e.shiftKey?10:1;a.set({left:a.left+(k==='arrowright'?d:k==='arrowleft'?-d:0),top:a.top+(k==='arrowdown'?d:k==='arrowup'?-d:0)});a.setCoords();canvas.requestRenderAll()}});
+  else if(a&&k.startsWith('arrow')){e.preventDefault();const d=e.shiftKey?10:1;a.set({left:a.left+(k==='arrowright'?d:k==['arrowleft']?-d:0),top:a.top+(k==='arrowdown'?d:k==='arrowup'?-d:0)});a.setCoords();canvas.requestRenderAll()}});
 canvas.on('mouse:up',()=>{});
 
 /* ---------- Descargas ---------- */
 $('#dlbtn').onclick=e=>{e.stopPropagation();$('#dl').classList.toggle('open')};
-addEventListener('click',()=>$('#dl').classList.remove('open'));
-function save(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click()}
-$$('#dl button').forEach(b=>b.onclick=()=>{const f=b.dataset.f,n=($('#title').value||'diseno').trim();canvas.discardActiveObject().renderAll();
+addEventListener('click',()=>$('#dl').classList.remove('open')); function save(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click()} $$('#dl button').forEach(b=>b.onclick=()=>{const f=b.dataset.f,n=($('#title').value||'diseno').trim();canvas.discardActiveObject().renderAll();
   if(f==='svg'){const s=canvas.toSVG({width:W,height:H,viewBox:{x:0,y:0,width:W,height:H}});save(URL.createObjectURL(new Blob([s],{type:'image/svg+xml'})),n+'.svg')}
   else if(f==='json')save(URL.createObjectURL(new Blob([JSON.stringify({w:W,h:H,canvas:canvas.toJSON()})],{type:'application/json'})),n+'.json');
   else save(canvas.toDataURL({format:f,quality:.95,multiplier:1/zoom}),n+'.'+(f==='jpeg'?'jpg':'png'));
   toast('Descarga lista')});
 
 /* ---------- Inicio: recuperar diseño guardado ---------- */
-try{const d=JSON.parse(localStorage.getItem('verdi-design'));if(d){W=d.w;H=d.h;$('#title').value=d.title||$('#title').value;fit();load(d.json,()=>{hist=[d.json];hi=0;buttons();toast('Diseño recuperado')});}else{fit();snap()}}catch(e){fit();snap()}
+try{const d=JSON.parse(localStorage.getItem('verdi-design'));if(d){W=d.w;H=d.h;$('#title').value=d.title\vert{}\vert{}$('#title').value;fit();load(d.json,()=>{hist=[d.json];hi=0;buttons();toast('Diseño recuperado')});}else{fit();snap()}}catch(e){fit();snap()}
 buttons();
 </script>
 </body>
