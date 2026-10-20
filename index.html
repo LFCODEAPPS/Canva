@@ -59,7 +59,6 @@ select{height:34px;border:1px solid var(--line);border-radius:8px;background:#ff
 .big{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--g0);border-radius:10px;padding:12px 14px;margin-bottom:8px;color:var(--ink)}
 .big:hover{border-color:var(--g5);background:var(--g1)}
 
-/* Estilo para las tarjetas de plantillas */
 .tpl-card{border:1px solid var(--line);background:var(--g0);border-radius:10px;overflow:hidden;margin-bottom:10px;cursor:pointer;transition:.2s}
 .tpl-card:hover{border-color:var(--g5);background:var(--g1);transform:translateY(-2px);box-shadow:0 4px 12px rgba(6,43,32,.08)}
 .tpl-thumb{height:110px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;padding:10px;text-align:center}
@@ -183,7 +182,6 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
       <h3>Tamaño del lienzo</h3>
       <div class="sizes" id="sizes"></div>
     </div>
-    <!-- Panel de Plantillas Profesionales -->
     <div class="pane" id="p-templates">
       <h3>Plantillas prediseñadas</h3>
       <div id="templates-list"></div>
@@ -226,14 +224,20 @@ function undo(){if(hi>0){hi--;load(hist[hi])}}
 function redo(){if(hi<hist.length-1){hi++;load(hist[hi])}}
 function buttons(){$('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1}
 ['object:added','object:modified','object:removed'].forEach(e=>canvas.on(e,snap));
-$('#undo').onclick=undo;$('#redo').onclick=redo;$('#title').oninput=()=>{try{const d=JSON.parse(localStorage.getItem('verdi-design'));d.title=$('#title').value;localStorage.setItem('verdi-design',JSON.stringify(d))}catch(e){}};  /* ---------- Panel lateral ---------- */ $$('#rail button').forEach(b=>b.onclick=()=>{$$('#rail button').forEach(x=>x.classList.toggle('on',x===b));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p))});
+$('#undo').onclick=undo;$('#redo').onclick=redo;$('#title').oninput=()=>{try{const d=JSON.parse(localStorage.getItem('verdi-design'));d.title=$('#title').value;localStorage.setItem('verdi-design',JSON.stringify(d))}catch(e){}};  /* ---------- Panel lateral (Corregido) ---------- */ $$('#rail button').forEach(b=>b.onclick=()=>{
+  $$('#rail button').forEach(x=>x.classList.remove('on')); $$
+('#panel .pane').forEach(p=>p.classList.remove('on'));
+  b.classList.add('on');
+  const pane = $('#p-' + b.dataset.p);
+  if(pane) pane.classList.add('on');
+});
+
 function place(o){o.set({left:W/2,top:H/2,originX:'center',originY:'center'});canvas.add(o).setActiveObject(o);canvas.requestRenderAll()}
 
 /* ---------- Sistema de Plantillas Editables ---------- */
 const PLANTILLAS = [
   {
     name: 'Anuncio Minimalista',
-    bg: '#f3fbf6',
     previewBg: '#e3f5ea',
     previewColor: '#0f5a41',
     build() {
@@ -248,7 +252,6 @@ const PLANTILLAS = [
   },
   {
     name: 'Oferta Especial',
-    bg: '#fff6d6',
     previewBg: '#fff0b3',
     previewColor: '#8a6d0b',
     build() {
@@ -264,7 +267,6 @@ const PLANTILLAS = [
   },
   {
     name: 'Cita Inspiradora',
-    bg: '#062b20',
     previewBg: '#0b3b2c',
     previewColor: '#3fd18a',
     build() {
@@ -280,6 +282,7 @@ const PLANTILLAS = [
 
 function renderTemplatesMenu() {
   const container = $('#templates-list');
+  if(!container) return;
   container.innerHTML = PLANTILLAS.map((tpl, index) => `
     <div class="tpl-card" data-index="${index}">
       <div class="tpl-thumb" style="background:${tpl.previewBg}; color:${tpl.previewColor}">
@@ -365,19 +368,26 @@ addEventListener('keydown',e=>{const a=canvas.getActiveObject();if(/INPUT|SELECT
   else if(m&&k==='y'){e.preventDefault();redo()}
   else if(m&&k==='c')copy();else if(m&&k==='v'&&clip)paste();else if(m&&k==='d'){e.preventDefault();copy();paste()}
   else if(m&&k==='a'){e.preventDefault();canvas.discardActiveObject();canvas.setActiveObject(new fabric.ActiveSelection(canvas.getObjects(),{canvas}));canvas.requestRenderAll()}
-  else if(a&&k.startsWith('arrow')){e.preventDefault();const d=e.shiftKey?10:1;a.set({left:a.left+(k==='arrowright'?d:k==['arrowleft']?-d:0),top:a.top+(k==='arrowdown'?d:k==='arrowup'?-d:0)});a.setCoords();canvas.requestRenderAll()}});
+  else if(a&&k.startsWith('arrow')){e.preventDefault();const d=e.shiftKey?10:1;a.set({left:a.left+(k==='arrowright'?d:k==='arrowleft'?-d:0),top:a.top+(k==['arrowdown']?d:k==='arrowup'?-d:0)});a.setCoords();canvas.requestRenderAll()}});
 canvas.on('mouse:up',()=>{});
 
 /* ---------- Descargas ---------- */
 $('#dlbtn').onclick=e=>{e.stopPropagation();$('#dl').classList.toggle('open')};
 addEventListener('click',()=>$('#dl').classList.remove('open')); function save(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click()} $$('#dl button').forEach(b=>b.onclick=()=>{const f=b.dataset.f,n=($('#title').value||'diseno').trim();canvas.discardActiveObject().renderAll();
-  if(f==='svg'){const s=canvas.toSVG({width:W,height:H,viewBox:{x:0,y:0,width:W,height:H}});save(URL.createObjectURL(new Blob([s],{type:'image/svg+xml'})),n+'.svg')}
+  if(f==='svg'){const s=canvas.toSVG({width:W,height:H,viewBox:{x:0,y:0,width:W,height:H}});save(URL.createObjectURL(new Blob([s],{type:['image/svg+xml']})),n+'.svg')}
   else if(f==='json')save(URL.createObjectURL(new Blob([JSON.stringify({w:W,h:H,canvas:canvas.toJSON()})],{type:'application/json'})),n+'.json');
   else save(canvas.toDataURL({format:f,quality:.95,multiplier:1/zoom}),n+'.'+(f==='jpeg'?'jpg':'png'));
   toast('Descarga lista')});
 
 /* ---------- Inicio: recuperar diseño guardado ---------- */
-try{const d=JSON.parse(localStorage.getItem('verdi-design'));if(d){W=d.w;H=d.h;$('#title').value=d.title\vert{}\vert{}$('#title').value;fit();load(d.json,()=>{hist=[d.json];hi=0;buttons();toast('Diseño recuperado')});}else{fit();snap()}}catch(e){fit();snap()}
+try{
+  const d=JSON.parse(localStorage.getItem('verdi-design'));
+  if(d){
+    W=d.w; H=d.h; $('#title').value=d.title\vert{}\vert{}$('#title').value;
+    canvas.setDimensions({width:W, height:H});
+    load(d.json,()=>{hist=[d.json];hi=0;buttons();fit();toast('Diseño recuperado')});
+  }else{fit();snap()}
+}catch(e){fit();snap()}
 buttons();
 </script>
 </body>
