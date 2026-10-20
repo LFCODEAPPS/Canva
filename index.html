@@ -129,6 +129,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
   <button class="hb" id="redo" title="Rehacer (Ctrl+Y)">↷</button>
   <div class="sp"></div>
   <button class="hb" id="galleryBtn" title="Mis diseños">🗂 Mis diseños</button>
+  <div id="auth-slot"><!-- Login de Google se añadirá aquí --></div>
   <div class="menu">
     <button class="hb main" id="dlbtn">Descargar ▾</button>
     <div class="drop" id="dl">
@@ -217,7 +218,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
       <h3>Imágenes</h3>
       <div class="drop-zone" id="dz">Haz clic o suelta aquí tus imágenes</div>
       <input type="file" id="file" accept="image/*" multiple hidden>
-      <p style="font-size:12px;color:var(--mut);margin-top:10px">Tamaño máximo por imagen: 12 MB.</p>
+      <p style="font-size:12px;color:var(--mut);margin-top:10px">Tamaño máximo por imagen: 12 MB. Se recomienda &lt; 4000px de lado.</p>
     </div>
     <div class="pane" id="p-layers">
       <h3>Capas <small style="color:var(--mut);font-weight:400">(arrastra para reordenar)</small></h3>
@@ -259,7 +260,7 @@ label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 5px}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let W=1080,H=1080,zoom=1,restoring=false,hist=[],hi=-1,clip=null,userZoomed=false;
 const canvas=new fabric.Canvas('c',{width:W,height:H,backgroundColor:'#ffffff',preserveObjectStacking:true,selectionColor:'rgba(23,178,106,.15)',selectionBorderColor:'#17b26a'});
 fabric.Object.prototype.set({cornerColor:'#fff',cornerStrokeColor:'#17b26a',borderColor:'#17b26a',cornerStyle:'circle',cornerSize:11,transparentCorners:false,borderScaleFactor:1.6});
@@ -280,6 +281,7 @@ function toHex(c){
   if(m)return '#'+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,'0')).join('');
   return '#000000';
 }
+/* ID estable por objeto para capas */
 function ensureIds(){canvas.getObjects().forEach(o=>{if(!o._id)o._id='o'+(Math.random()*1e9|0)})}
 
 /* ---------- Zoom ---------- */
@@ -313,7 +315,7 @@ function loadProject(id){
   const idx=readIndex(); const p=idx.find(x=>x.id===id); if(!p)return;
   localStorage.setItem(LS_CURRENT,id);
   W=p.w;H=p.h;$('#title').value=p.title||'Diseño sin título';
-  canvas.setBackgroundColor('#ffffff');
+  canvas.setBackgroundColor('#ffffff'); // reset antes de cargar
   load(p.json,()=>{ hist=[]; hi=-1; snap(); fit(); toast('Abierto: '+p.title); });
   closeGallery();
 }
@@ -338,6 +340,7 @@ function load(j,cb){
   restoring=true;
   try{
     canvas.loadFromJSON(j,()=>{
+      // restaurar estado de bloqueo/oculto
       canvas.getObjects().forEach(o=>{
         if(o._locked)o.set({lockMovementX:true,lockMovementY:true,lockScalingX:true,lockScalingY:true,lockRotation:true,hasControls:false});
         if(o._hidden)o.set({visible:false});
@@ -348,11 +351,28 @@ function load(j,cb){
 }
 function undo(){if(hi>0){hi--;load(hist[hi])}}
 function redo(){if(hi<hist.length-1){hi++;load(hist[hi])}}
-function buttons(){$('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1} ['object:added','object:modified','object:removed'].forEach(e=>canvas.on(e,snap));  /* ---------- Panel lateral ---------- */ $$('#rail button').forEach(b=>b.onclick=()=>{
-  $$('#rail button').forEach(x=>x.classList.toggle('on',x===b)); $$
-('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
+function buttons(){$('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1}
+['object:added','object:modified','object:removed'].forEach(e=>canvas.on(e,snap));
+
+/* ---------- Panel lateral ---------- */
+$$('#rail button').forEach(b=>b.onclick=()=>{
+  $$('#rail button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
   if(b.dataset.p==='layers')renderLayers();
-  $('#panel').classList.add('open'); }); function place(o){o.set({left:W/2,top:H/2,originX:'center',originY:'center'});canvas.add(o).setActiveObject(o);canvas.requestRenderAll()}  /* ---------- Texto ---------- */ const TXT={ h:['Añade un título',{fontSize:90,fontWeight:800,fontFamily:'Plus Jakarta Sans'}], s:['Añade un subtítulo',{fontSize:56,fontWeight:600,fontFamily:'Plus Jakarta Sans'}], b:['Escribe aquí tu texto. Haz doble clic para editarlo.',{fontSize:34,width:620,fontFamily:'Plus Jakarta Sans'}], c1:['Hecho con cariño',{fontSize:100,fontFamily:'Pacifico',fill:'#0f5a41'}], c2:['GRAN OFERTA',{fontSize:140,fontFamily:'Bebas Neue',charSpacing:120}], c3:['Elegancia clásica',{fontSize:80,fontFamily:'Playfair Display',fontWeight:700}] }; $$('[data-t]').forEach(b=>b.onclick=()=>{
+  $('#panel').classList.add('open'); // para móvil
+});
+function place(o){o.set({left:W/2,top:H/2,originX:'center',originY:'center'});canvas.add(o).setActiveObject(o);canvas.requestRenderAll()}
+
+/* ---------- Texto ---------- */
+const TXT={
+ h:['Añade un título',{fontSize:90,fontWeight:800,fontFamily:'Plus Jakarta Sans'}],
+ s:['Añade un subtítulo',{fontSize:56,fontWeight:600,fontFamily:'Plus Jakarta Sans'}],
+ b:['Escribe aquí tu texto. Haz doble clic para editarlo.',{fontSize:34,width:620,fontFamily:'Plus Jakarta Sans'}],
+ c1:['Hecho con cariño',{fontSize:100,fontFamily:'Pacifico',fill:'#0f5a41'}],
+ c2:['GRAN OFERTA',{fontSize:140,fontFamily:'Bebas Neue',charSpacing:120}],
+ c3:['Elegancia clásica',{fontSize:80,fontFamily:'Playfair Display',fontWeight:700}]
+};
+$$('[data-t]').forEach(b=>b.onclick=()=>{
   const [t,o]=TXT[b.dataset.t];
   const f=document.fonts?document.fonts.load(`${o.fontSize}px "${o.fontFamily}"`):Promise.resolve();
   f.finally(()=>{const T=o.width?fabric.Textbox:fabric.IText;place(new T(t,{fill:'#10231b',...o}))});
@@ -363,25 +383,26 @@ const G=getVar('--g5')||'#17b26a';
 function star(n=5,R=100,r=45){const p=[];for(let i=0;i<n*2;i++){const a=Math.PI*i/n-Math.PI/2,d=i%2?r:R;p.push({x:R+d*Math.cos(a),y:R+d*Math.sin(a)})}return p}
 function regularPolygon(n,R=100,cx=R,cy=R){const p=[];for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;p.push({x:cx+R*Math.cos(a),y:cy+R*Math.sin(a)})}return p}
 const SH={
-  rect:()=>new fabric.Rect({width:260,height:260,fill:G}),
-  round:()=>new fabric.Rect({width:320,height:200,rx:36,ry:36,fill:G}),
-  circle:()=>new fabric.Circle({radius:140,fill:G}),
-  tri:()=>new fabric.Triangle({width:280,height:250,fill:G}),
-  star:()=>new fabric.Polygon(star(),{fill:G,scaleX:2.2,scaleY:2.2}),
-  hex:()=>new fabric.Polygon(regularPolygon(6),{fill:G,scaleX:2.2,scaleY:2.2}),
-  heart:()=>new fabric.Path('M 0 -40 C -60 -110 -150 -30 0 90 C 150 -30 60 -110 0 -40 z',{fill:G,scaleX:1.4,scaleY:1.4}),
-  line:()=>new fabric.Line([0,0,360,0],{stroke:'#0b3b2c',strokeWidth:8,strokeLineCap:'round'}),
-  arrow:()=>new fabric.Path('M 0 20 L 200 20 L 200 0 L 260 50 L 200 100 L 200 80 L 0 80 z',{fill:G,scaleX:1.2,scaleY:1.2})
+ rect:()=>new fabric.Rect({width:260,height:260,fill:G}),
+ round:()=>new fabric.Rect({width:320,height:200,rx:36,ry:36,fill:G}),
+ circle:()=>new fabric.Circle({radius:140,fill:G}),
+ tri:()=>new fabric.Triangle({width:280,height:250,fill:G}),
+ star:()=>new fabric.Polygon(star(),{fill:G,scaleX:2.2,scaleY:2.2}),
+ hex:()=>new fabric.Polygon(regularPolygon(6),{fill:G,scaleX:2.2,scaleY:2.2}),
+ heart:()=>new fabric.Path('M 0 -40 C -60 -110 -150 -30 0 90 C 150 -30 60 -110 0 -40 z',{fill:G,scaleX:1.4,scaleY:1.4}),
+ line:()=>new fabric.Line([0,0,360,0],{stroke:'#0b3b2c',strokeWidth:8,strokeLineCap:'round'}),
+ arrow:()=>new fabric.Path('M 0 20 L 200 20 L 200 0 L 260 50 L 200 100 L 200 80 L 0 80 z',{fill:G,scaleX:1.2,scaleY:1.2})
 };
 $$('[data-s]').forEach(b=>b.onclick=()=>place(SH[b.dataset.s]()));
 
-/* ---------- Imágenes ---------- */
+/* ---------- Imágenes (con límite) ---------- */
 const MAX_BYTES=12*1024*1024, MAX_SIDE=6000;
 function addFiles(fl){
   [...fl].filter(f=>f.type.startsWith('image/')).forEach(f=>{
     if(f.size>MAX_BYTES){toast('Imagen demasiado grande (>12 MB): '+f.name);return}
     const r=new FileReader();
     r.onload=()=>fabric.Image.fromURL(r.result,img=>{
+      if(img.width>MAX_SIDE||img.height>MAX_SIDE){toast('Imagen muy grande, se reduce');}
       const s=Math.min(W*.7/img.width,H*.7/img.height,1);img.scale(s);place(img);
     },{crossOrigin:'anonymous'});
     r.readAsDataURL(f);
@@ -443,7 +464,7 @@ canvas.on('object:scaling',syncSoon);
 
 $('#fill').addEventListener('input',e=>each(o=>o.set('fill',e.target.value)));
 $('#stroke').addEventListener('input',e=>each(o=>o.set({stroke:e.target.value,strokeWidth:o.strokeWidth||(o.type==='line'?8:2)})));
-$('#sw').addEventListener('change',e=>each(o=>o.set({stroke:o.stroke\vert{}\vert{}$('#stroke').value,strokeWidth:+e.target.value})));
+$('#sw').addEventListener('change',e=>each(o=>o.set({stroke:o.stroke||$('#stroke').value,strokeWidth:+e.target.value})));
 const opLive=debounce(()=>{act().forEach(o=>o.set('opacity',$('#op').value/100));canvas.requestRenderAll()},50);
 $('#op').addEventListener('input',opLive);
 $('#op').addEventListener('change',()=>snap());
@@ -595,11 +616,13 @@ function renderLayers(){
       const objs=canvas.getObjects();
       const src=objs.find(x=>x._id===srcId), dst=objs.find(x=>x._id===el.dataset.id);
       if(!src||!dst)return;
+      // reordenar en el array de objetos de fabric
       const from=objs.indexOf(src), to=objs.indexOf(dst);
       objs.splice(from,1);
       const before=e.clientY<el.getBoundingClientRect().top+el.getBoundingClientRect().height/2;
       const insertAt=before?objs.indexOf(dst)+1:objs.indexOf(dst);
       objs.splice(insertAt,0,src);
+      // reasignar orden
       canvas._objects=objs; canvas.renderAll(); snap();
     };
   });
@@ -711,7 +734,7 @@ $('#gallery').addEventListener('click',e=>{if(e.target.id==='gallery')closeGalle
 
 /* ---------- Inicio ---------- */
 const FONTS=['Plus Jakarta Sans','Poppins','Montserrat','Playfair Display','Pacifico','Bebas Neue','Georgia','Arial','Courier New'];
-$('#font').innerHTML=FONTS.map(f=>`<option value="${f}" style="font-family:'${f}'">${f}</option>`).join('');
+$('#font').innerHTML=FONTS.map(f=>`<option style="font-family:'${f}'">${f}</option>`).join('');
 const SIZES=[['Publicación',1080,1080],['Historia',1080,1920],['Presentación',1920,1080],['Póster A4',794,1123],['Banner',1500,500]];
 $('#sizes').innerHTML=SIZES.map((s,i)=>`<button data-i="${i}">${s[0]}<small>${s[1]}×${s[2]}</small></button>`).join('');
 const COLORS=['#ffffff','#f3fbf6','#e3f5ea','#b7e8cc','#3fd18a','#17b26a','#0f5a41','#062b20','#fff6d6','#ffd9c7','#d9e8ff','#111111'];
